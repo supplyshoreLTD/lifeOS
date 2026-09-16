@@ -1,0 +1,62 @@
+name: Nightly iOS Build & Deploy
+
+on:
+  schedule:
+    - cron: '30 2 * * *' # 02:30 UTC every day
+  workflow_dispatch: # allow manual trigger from the Actions tab
+
+jobs:
+  nightly:
+    name: Nightly build (nightly branch)
+    # Public repo => free macOS runner. See BRANCHING.md for the nightly lane.
+    runs-on: macos-latest
+    permissions:
+      contents: write # to create the pre-release / tag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: nightly
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          cache: true
+      - run: flutter pub get
+
+      - name: Build iOS release without code signing
+        run: flutter build ios --release --no-codesign
+
+      - name: Package Runner.app
+        run: |
+          cd build/ios/iphoneos
+          zip -r -y Runner.app.zip Runner.app
+
+      - name: Fix permissions for upload
+        run: chmod -R a+r build/ios/iphoneos/Runner.app.zip
+
+      # --- Signing / TestFlight is wired in later ---
+      # To deploy to TestFlight instead of (or in addition to) the unsigned zip:
+      #   1. Add secrets: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, and a
+      #      distribution certificate + provisioning profile (base64) matching the
+      #      bundle id.
+      #   2. Replace the unsigned steps above with:
+      #        flutter build ipa --release --export-options-plist=gcp/export.plist
+      #   3. Upload via AppleTransport (xcrun altool --upload-app ...) using those secrets.
+      # ---------------------------------------------------------------
+
+      - name: Upload unsigned artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runner.app-unsigned
+          path: build/ios/iphoneos/Runner.app.zip
+          if-no-files-found: error
+
+      - name: Create nightly pre-release
+        run: |
+          gh release create "nightly-$(date -u +%Y%m%d%H%M)" \
+            build/ios/iphoneos/Runner.app.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Nightly build $(date -u +%Y-%m-%d)" \
+            --prerelease \
+            --notes "Automated nightly build from the \`nightly\` branch. Unsigned Runner.app."
+        env:
+          GH_TOKEN: ${{ github.token }}
