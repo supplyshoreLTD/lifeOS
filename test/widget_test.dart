@@ -1,16 +1,21 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:life_os/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('tab scaffold renders Home, Search, Settings', (WidgetTester tester) async {
+    await tester.pumpWidget(const LifeOSApp());
+
+    expect(find.byType(CupertinoTabScaffold), findsOneWidget);
+    expect(find.byType(CupertinoTabBar), findsOneWidget);
+
+    expect(find.text('Home'), findsOneWidget);
+    expect(find.text('Search'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+  });
+
+  testWidgets('counter increments with Increment button', (WidgetTester tester) async {
     await tester.pumpWidget(const LifeOSApp());
 
     expect(find.text('0'), findsOneWidget);
